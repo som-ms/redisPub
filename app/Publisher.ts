@@ -30,7 +30,7 @@ export class Publisher {
         }
     }
 
-    initiateTask(): void {
+    initiateTask(runtime: number): void {
         this.redisClient.on("ready", () => {
             appInsight.defaultClient.trackMetric({ name: "redisPubConnOpen", value: 1.0 });
             console.log("Redis connection Established");
@@ -38,31 +38,28 @@ export class Publisher {
         });
         setInterval(this.publishMessage.bind(this), Constants.MESSAGE_PUBLISH_INTERVAL);
         setInterval(this.sendMetric.bind(this), Constants.METRIC_SENT_INTERVAL);
-        // process.on('SIGINT', async () => {
-        //     console.log("shutting down gracefully.")
-        //     this.sendMetric.bind(this);
-        //     appInsight.defaultClient.flush();
-        // });
+        setInterval(this.stopTest.bind(this), runtime * 60 * 1000);
+    }
 
+    stopTest(): void {
+        this.sendStart = false;
     }
 
     sendMetric(): void {
-        if (this.sendStart) {
-            for (var i: number = 0; i < Constants.TOTAL_CHANNEL_PER_PUBLISHER; i++) {
-                var propertySet = {
-                    "TotalMessagesSent": this.totalMessagesSent[i],
-                    "channelId": this.firstChannelId + i
-                };
-                var metric = { "MessageBatchSent": this.currentBatchCount[i] };
+        for (var i: number = 0; i < Constants.TOTAL_CHANNEL_PER_PUBLISHER; i++) {
+            var propertySet = {
+                "TotalMessagesSent": this.totalMessagesSent[i],
+                "channelId": this.firstChannelId + i
+            };
+            var metric = { "MessageBatchSent": this.currentBatchCount[i] };
 
-                appInsight.defaultClient.trackEvent({
-                    name: "pubEvents",
-                    properties: propertySet,
-                    measurements: metric
-                });
-                appInsight.defaultClient.flush();
-                this.currentBatchCount[i] = 0;
-            }
+            appInsight.defaultClient.trackEvent({
+                name: "pubEvents",
+                properties: propertySet,
+                measurements: metric
+            });
+            appInsight.defaultClient.flush();
+            this.currentBatchCount[i] = 0;
         }
     }
 
